@@ -10,6 +10,18 @@
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
+/* Lista dos processos em estado THREAD_BLOCKED, ou seja, de
+    processos que estão bloqueados */
+static struct list sleep_list; 
+
+//Nossa implementação será feita de tal forma que iremos manter a sleep_list sempre ordenada em ordem crescente do wakeup_tick
+static bool wakeup_menor_tick (const struct list_elem *a, const struct list_elem *b) {
+  const struct thread *ta = list_entry (a, struct thread, sleep_elem);
+  const struct thread *tb = list_entry (b, struct thread, sleep_elem);
+
+  return ta->ticks_to_wake < tb->ticks_to_wake; //retorna a comparação se os ticks para acordar da thread a são menores que os da thread b
+}
+
 #if TIMER_FREQ < 19
 #error 8254 timer requires TIMER_FREQ >= 19
 #endif
@@ -37,6 +49,8 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+
+  list_init(&sleep_list); //inicializando a lista de sleep para manipularmos diretamente 
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -89,11 +103,18 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks ();
-
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+
+  int64_t start = timer_ticks ();
+  enum intr_level old_level = intr_disable();
+
+  struct thread *cur = thread_current();
+  cur->ticks_to_wake = start + ticks; //define a quantidade de ticks para acordar da thread atual
+
+  list_insert_ordered (&sleep_list, &cur->sleep_elem, wakeup_menor_tick, NULL); //insere a thread atual na sleep_list
+
+  thread_block(); //muda o estado da thread para bloqueado
+  intr_set_level(old_level);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -172,6 +193,19 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+
+  //verificamos se ha threads na sleep list prontas para acordar. Essa lista está ordenada, então paramos assim que
+  //encontramos uma thread que o tempo de despertar seja maior ao tick atual
+  while (!list_empty(&sleep_list)) {
+    struct list_elem *e = list_front(&sleep_list);
+    struct thread *t = list_entry (e, struct thread, sleep_elem);
+
+    if (ticks < t->ticks_to_wake) break; //t será a thread com menor tick dentre todas da lista. Essa condição só acontece se 
+
+    //retiramos o elemento da lista de sleep e a thread dentre os bloqueados
+    list_pop_front(&sleep_list);
+    thread_unblock(t);
+  }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

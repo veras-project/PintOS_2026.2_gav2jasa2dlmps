@@ -300,12 +300,12 @@ thread_exit (void)
 /* Yields the CPU.  The current thread is not put to sleep and
    may be scheduled again immediately at the scheduler's whim. */
 void
-thread_yield (void) 
+thread_yield (void) //NÃO IREMOS MAIS USAR ESSA FUNÇÃO
 {
   struct thread *cur = thread_current ();
   enum intr_level old_level;
   
-  ASSERT (!intr_context ());
+  ASSERT (!intr_context ());  
 
   old_level = intr_disable ();
   if (cur != idle_thread) 

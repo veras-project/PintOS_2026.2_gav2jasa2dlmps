@@ -17,3 +17,5 @@ Cada estrutura de Dados usada deverá ser definida e inicializada (Listas, funç
 Devemos criar uma variável global que caracteriza o "quantum" (slice de tempo) do sistema, 
 um Global Tick. Essa será a mínima fatia de tempo do sistema, pela qual conseguiremos fazer
 a verificação na lista de processos bloquados
+
+Os estados de thread ja foram implementados. Apenas precisamos modificar onde que estão sendo chamados
