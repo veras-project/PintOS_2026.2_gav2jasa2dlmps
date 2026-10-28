@@ -10,16 +10,16 @@
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
-/* Lista dos processos em estado THREAD_BLOCKED, ou seja, de
-    processos que estão bloqueados */
+//Lista de processos em estado Bloqueado
 static struct list sleep_list; 
 
-//Nossa implementação será feita de tal forma que iremos manter a sleep_list sempre ordenada em ordem crescente do wakeup_tick
-static bool wakeup_menor_tick (const struct list_elem *a, const struct list_elem *b) {
+//Função usada como ponteiro de função para list_insert_ordered, para ordenar as threads a serem acordadas de acordo com o menor tick
+
+static bool wakeup_menor_tick (const struct list_elem *a, const struct list_elem *b, void * aux UNUSED) {
   const struct thread *ta = list_entry (a, struct thread, sleep_elem);
   const struct thread *tb = list_entry (b, struct thread, sleep_elem);
 
-  return ta->ticks_to_wake < tb->ticks_to_wake; //retorna a comparação se os ticks para acordar da thread a são menores que os da thread b
+  return ta->ticks_to_wake < tb->ticks_to_wake; //retorna a comparação entre os ticks das threads
 }
 
 #if TIMER_FREQ < 19
@@ -104,6 +104,7 @@ void
 timer_sleep (int64_t ticks) 
 {
   ASSERT (intr_get_level () == INTR_ON);
+  if (ticks <=0) return; //intervalo de 0 ticks ou ticks negativos retornam imediatamente
 
   int64_t start = timer_ticks ();
   enum intr_level old_level = intr_disable();
@@ -113,8 +114,8 @@ timer_sleep (int64_t ticks)
 
   list_insert_ordered (&sleep_list, &cur->sleep_elem, wakeup_menor_tick, NULL); //insere a thread atual na sleep_list
 
-  thread_block(); //muda o estado da thread para bloqueado
-  intr_set_level(old_level);
+  thread_block(); //muda o estado da thread para bloqueado, retirando a thread da CPU enquanto ela está nesse estado e cedendo para outra. Funções implementadas internamente
+  intr_set_level(old_level); // reabilita as interrupções para a thread atual quando ela retorna para o estado de READY
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -200,7 +201,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
     struct list_elem *e = list_front(&sleep_list);
     struct thread *t = list_entry (e, struct thread, sleep_elem);
 
-    if (ticks < t->ticks_to_wake) break; //t será a thread com menor tick dentre todas da lista. Essa condição só acontece se 
+    if (ticks < t->ticks_to_wake) break; //t será a thread com menor tick dentre todas da lista 
 
     //retiramos o elemento da lista de sleep e a thread dentre os bloqueados
     list_pop_front(&sleep_list);
