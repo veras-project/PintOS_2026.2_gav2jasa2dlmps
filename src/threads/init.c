@@ -132,7 +132,7 @@ main (void)
   
   /* Run actions specified on kernel command line. */
   run_actions (argv);
-  run_custom_alarm_test();
+  //run_custom_alarm_test();
 
   /* Finish up. */
   shutdown ();
