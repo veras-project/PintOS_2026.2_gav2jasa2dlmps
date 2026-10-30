@@ -92,8 +92,8 @@ struct thread
     struct list_elem allelem;           /* List element for all threads list. */
     int64_t ticks_to_wake; //adicionado para contabilizar para qual quantidade de ticks do sistema a thread deve acordar
     struct list_elem sleep_elem; //adicionando elemento de lista para a lista de bloqueado
-    int nice;
-    float_type recent_cpu;
+    int nice; //fator nice da thread 
+    float_type recent_cpu; //quanto de CPU a thread usou recentemente
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */

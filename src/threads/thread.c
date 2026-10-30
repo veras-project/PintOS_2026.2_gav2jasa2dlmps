@@ -40,7 +40,7 @@ static struct thread *initial_thread;
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
 
-static float_type load_avg;
+static float_type load_avg; //media da quantidade de threads prontas no ultimo minuto
 
 
 /* Stack frame for kernel_thread(). */
@@ -110,7 +110,7 @@ thread_init (void)
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
 
-  load_avg=0;
+  load_avg=0; //média é zerada no boot
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -139,10 +139,12 @@ thread_tick (void)
 
   if(thread_mlfqs){
 
+    //adiciona 1 tick de uso de cpu na thread atual (se não estiver idle)
     if(t!=idle_thread){
       t->recent_cpu=FLOAT_ADD_MIX(t->recent_cpu,1);
     }
 
+    //a cada 100 ticks (1 segundo) atualiza o load_avg e o recent_cpu para as threads
     if(timer_ticks()%TIMER_FREQ==0){
 
       mlfqs_load_avg();
@@ -157,6 +159,7 @@ thread_tick (void)
       }
     }
 
+    //a cada 4 ticks recalcula a prioridade de todas as threads
     if(timer_ticks()%4==0){
 
       struct list_elem *i;
@@ -513,6 +516,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 
+  //primeira thread começa com os dois valores zerados
   if(t==initial_thread){
 
     t->nice=0;
@@ -540,7 +544,7 @@ alloc_frame (struct thread *t, size_t size)
   t->stack -= size;
   return t->stack;
 }
-
+//comparador para decidir a prioridade de cada thread
 static bool thread_comp(const struct list_elem *t1, const struct list_elem *t2, void *aux){
 
   return list_entry(t1,struct thread,elem)->priority < list_entry(t2,struct thread,elem)->priority;
@@ -653,6 +657,7 @@ allocate_tid (void)
   return tid;
 }
 
+//calcula a prioridade de cada thread e limita entre 0 e 63
 static void mlfqs_priority(struct thread *t){
 
   if(t==idle_thread) return;
@@ -672,6 +677,7 @@ static void mlfqs_priority(struct thread *t){
   t->priority=new_priority;
 }
 
+// atualiza o recent_cpu da thread usando o fator nice e o load_avg
 static void mlfqs_recent_cpu(struct thread *t){
 
   if(t==idle_thread) return;
@@ -682,6 +688,7 @@ static void mlfqs_recent_cpu(struct thread *t){
 
 }
 
+//atualiza o load_avg a partir da quantidade de threads prontas no último minuto
 static void mlfqs_load_avg(void){
 
   int ready_threads = list_size(&ready_list);
